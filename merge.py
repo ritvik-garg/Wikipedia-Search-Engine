@@ -94,11 +94,11 @@ path_to_temp_index_files = "./tempIndexedFiles"
 path_to_merged_index_folder = "mergedIndexedFiles"
 path_to_secondary_file =  "./secIndex.txt"
 
-threshold = 5000
+threshold = 50000
 
 temp_index_files = glob("./tempIndexedFiles/*")
 num_inverted_index = 0
-filenum = 0
+filenum = 1
 
 
 try:

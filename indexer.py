@@ -15,6 +15,8 @@ class WikiSearchEngine(xml.sax.ContentHandler):
 
 	def startElement(self, tag, attributes):
 		self.currData = tag
+		# self.title = ""
+		# self.text = ""
 
 	def endElement(self, tag):
 		if tag == "page":
@@ -23,9 +25,9 @@ class WikiSearchEngine(xml.sax.ContentHandler):
 			# print("end elemenet title : ", self.title)
 			# documentTitleMapping.write(str(self.docID)+":"+self.title.strip()+"\n")
 			try :
-			    documentTitleMapping.write(str(self.docID)+"#"+self.title[:-2])
+			    documentTitleMapping.write(str(self.docID)+"#"+self.title.strip() + "\n")
 			except:
-				documentTitleMapping.write(str(self.docID)+"#"+ str(self.title.encode('utf-8')[:-2])+"\n")
+				documentTitleMapping.write(str(self.docID)+"#"+ str(self.title.strip().encode('utf-8'))+"\n")
 			self.title = ""
 			self.text = ""
 
@@ -62,22 +64,23 @@ def processTitle(title, docID):
 	##
 	title_words = title.split()
 
-	create_inverted_index(title_words, docID, "t")
+	create_inverted_index(title_words, docID, "t", True)
 
 
-def create_inverted_index(words, docID, tag):
+def create_inverted_index(words, docID, tag, isTitle = False):
 	global num_tokens
 	num_tokens += len(words)
 
 	for word in words:
 		word = word.strip()
-		if(len(word)<=2 or len(word)>20 or word in stopwords or word.isdigit() or word.isalpha()==False):
+		if(len(word)<=2 or len(word)>20 or word in stopwords or word.isnumeric() or word.isalpha()==False):
 			continue
 
-		word = stemmer.stemWord(word)
+		if isTitle==False:
+			word = stemmer.stemWord(word)
 
-		if word in stopwords:
-			continue
+		#if word in stopwords:
+			#continue
 
 		if word not in inverted_index:
 			inverted_index[word] = {}
@@ -214,6 +217,9 @@ def processContent(content, docID):
 	# body
 	add_body_index(cleanContent, docID)
 
+	if(docID%1000==0):
+		print(docID, " pages read\n")
+
 	if(docID%max_page_limit==0):
 		print ("limtt erached \n\n\n")
 		filepath = getFilename(path_to_inverted_index_dir, curr_file_num)
@@ -261,11 +267,11 @@ if __name__ == "__main__":
 
 	path_to_inverted_index_file = path_to_inverted_index_dir + "/inverted_index2.txt"
 
-	max_page_limit = 100
+	max_page_limit = 10000
 	inverted_index = {}
 	num_tokens = 0
 	num_inverted_index_tokens = 0
-	curr_file_num = 0
+	curr_file_num = 1
 
 	documentTitleMapping = open("docToTitle.txt", "w")
 
@@ -282,7 +288,7 @@ if __name__ == "__main__":
 		num_inverted_index_tokens += len(inverted_index)
 		inverted_index.clear()
 
-	num_index_files = curr_file_num
+	num_index_files = curr_file_num-1
 	#print("inverted index : ", inverted_index)
 
 	# write_inverted_index_to_file(path_to_inverted_index_file)
@@ -295,3 +301,8 @@ if __name__ == "__main__":
 # 378599
 # remove tags ==name== etc
 # try spimi, bm-25/+
+
+# bash inverIndex.sh wiki-dump-1-test.xml tempIndexedFiles stats3.txt
+
+# bash inverIndex.sh enwiki-20210720-pages-articles-multistream.xml tempIndexedFiles stats3.txt
+# bash inverIndex.sh enwiki-latest-pages-articles17.xml-p23570393p23716197 tempIndexedFiles stats3.txt	
