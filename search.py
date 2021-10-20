@@ -10,11 +10,13 @@ from bisect import bisect
 
 def loadDocToTitle(path_to_doc_to_title):
 	global num_docs
-	with open(path_to_doc_to_title, "r", encoding = "utf-8") as f:
+	with open(path_to_doc_to_title, "r", encoding = "ISO-8859-1") as f:
 		for line in f:
+			#print("line : ", line)
 			num_docs += 1
 			id_title = line.split("#")
 			docToTitle[id_title[0]] = id_title[1]
+
 	
 
 def loadStopwords(path_to_stopwords_file):
@@ -57,7 +59,9 @@ def postingListOfWord(word):
 	
 	index_file = path_to_merged_index_folder + "index" + str(word_pos) + ".txt"
 	posting_list = []
-	# print(word, " present in ", word_pos, "\n")
+	print(word, " present in ", word_pos, "\n")
+	if word_pos==0:
+		return []
 	with open(index_file, 'r', encoding='utf-8') as f:
 		all_lines = f.readlines()
 		low=0
@@ -133,7 +137,8 @@ def  parse(query, isFieldQuery, out_file):
 			posting_list = postingListOfWord(word)
 			#print ("positn list : ", posting_list, "\n")
 			num_docs_in_posting_list = len(posting_list)
-			
+			print ("num_docs_in_posting_list  : ", num_docs_in_posting_list)
+			print("num_docs : ", num_docs)
 			for info in posting_list:
 				docID, fieldInfo = info.split("-")
 				fieldFreq = fieldInfo.split("|")
@@ -162,14 +167,18 @@ def  parse(query, isFieldQuery, out_file):
 				field_indexes.append(ind)
 		field_indexes.append(len(query)+1)
 
+		field_indexes = sorted(field_indexes)
 		num_tags = len(field_indexes)-1
 		tag_tokens = []
 
+
+
+		print ("indexed of field : ", field_indexes)
 		for i in range(num_tags):
 			q = query[field_indexes[i]:field_indexes[i+1]-1]
 			q = q.strip().split(":")
 			tag = q[0]
-			#print ("tag found : ", tag)
+			print ("tag found : ", tag)
 			if tag not in fields:
 				print ("wrong tag\n")
 				sys.exit()
@@ -181,9 +190,12 @@ def  parse(query, isFieldQuery, out_file):
 				token = stemmer.stemWord(token)
 				if len(token)>2 and token.isalnum() and token not in stopwords:
 					tag_tokens.append((tag, token))
+					if tag!='t':
+						tag_tokens.append(('t', token))
+
 
 		#ranking_docs = defaultdict(int)
-		print ("field : ", tag_tokens, "\n")
+		#print ("field : ", tag_tokens, "\n")
 		for (tag, token) in tag_tokens:
 			posting_lists_all = postingListOfWord(token)
 			posting_lists_of_given_tag = []
@@ -244,7 +256,7 @@ if __name__ == "__main__":
 	stemmer = Stemmer.Stemmer('english')
 	fields = ['t', 'b', 'c', 'i', 'r', 'e']
 	tags = ['t:', 'b:', 'c:', 'i:', 'r:', 'e:']
-	tag_weights = {'t': 1000,'b': 1,'i': 50,'c': 50,'r': 50,'e': 50}
+	tag_weights = {'t': 2500,'b': 1,'i': 50,'c': 50,'r': 50,'e': 50}
 
 
 	out_file = open("queries_op2.txt", "w+", encoding="utf-8")
