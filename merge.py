@@ -23,7 +23,7 @@ def writeToFile(inverted_index):
 
 
 def writeSecIndex():
-	with open(path_to_secondary_file, "w", encoding="utf-8") as f:
+	with open(path_to_secondary_file, "w") as f:
 		for word in sorted(secIndex):
 			f.write(word+"\n")
 
@@ -87,7 +87,7 @@ def mergeKFiles():
 def deleteTempIndexFiles():
 	for filename in temp_index_files:
 		os.remove(filename)
-	os.rmdir(path_to_temp_index_files)
+	os.remove(path_to_temp_index_files)
 
 
 path_to_temp_index_files = "./tempIndexedFiles"
@@ -111,13 +111,13 @@ except:
 
 mergeKFiles()
 
-deleteTempIndexFiles()
+# deleteTempIndexFiles()
 with open("stats.txt", "w", encoding="utf-8") as stats_file :
 	stats_file.write(str(filenum-1) + "\n" + str(num_inverted_index))
 
 """ 
 os.remove all temp files
-word_pos_dict in code for faster search
+word_pos_dict in sagnik code for faster search
 """
 # main()
 # python merge.py

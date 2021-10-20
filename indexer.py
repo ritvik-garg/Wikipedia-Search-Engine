@@ -4,7 +4,38 @@ import re
 import xml.sax
 import timeit
 import os
-import xml.etree.cElementTree as et
+
+
+class WikiSearchEngine(xml.sax.ContentHandler):
+	def __init__(self):
+		self.currData = ""
+		self.docID = 0
+		self.title = ""
+		self.text = ""
+
+	def startElement(self, tag, attributes):
+		self.currData = tag
+		# self.title = ""
+		# self.text = ""
+
+	def endElement(self, tag):
+		if tag == "page":
+			self.docID += 1
+			processTags(self)
+			# print("end elemenet title : ", self.title)
+			# documentTitleMapping.write(str(self.docID)+":"+self.title.strip()+"\n")
+			try :
+			    documentTitleMapping.write(str(self.docID)+"#"+self.title.strip() + "\n")
+			except:
+				documentTitleMapping.write(str(self.docID)+"#"+ str(self.title.strip().encode('utf-8'))+"\n")
+			self.title = ""
+			self.text = ""
+
+	def characters(self, text):
+		if self.currData == "title":
+			self.title += text
+		if self.currData == "text":
+			self.text += text
 
 
 def removeNonAlphabets(data):
@@ -17,11 +48,15 @@ def create_tokens(content):
 	content = content.split()
 	return content
 
-def processTags(page_count, text, isTitle):
-	if isTitle:
-		processTitle(text, page_count)
-	else:
-		processContent(text, page_count)
+def processTags(obj):
+	title = obj.title
+	docID = obj.docID
+	content = obj.text
+	#print("content : ", content)
+	#sys.exit(1)
+
+	processTitle(title, docID)
+	processContent(content, docID)
 
 def processTitle(title, docID):
 	# datapreprocessing
@@ -29,25 +64,23 @@ def processTitle(title, docID):
 	##
 	title_words = title.split()
 
-	create_inverted_index(title_words, docID, "t")
+	create_inverted_index(title_words, docID, "t", True)
 
 
-def create_inverted_index(words, docID, tag):
+def create_inverted_index(words, docID, tag, isTitle = False):
 	global num_tokens
 	num_tokens += len(words)
 
 	for word in words:
-		word = re.sub(r'[^\x00-\x7F]+','', word)
 		word = word.strip()
-		#reg = re.compile(r'[^\x00-\x7F]+', re.DOTALL)
-		#word = reg.sub('', word)
 		if(len(word)<=2 or len(word)>20 or word in stopwords or word.isnumeric() or word.isalpha()==False):
 			continue
 
-		word = stemmer.stemWord(word)
-		
-		if word in stopwords:
-			continue
+		if isTitle==False:
+			word = stemmer.stemWord(word)
+
+		#if word in stopwords:
+			#continue
 
 		if word not in inverted_index:
 			inverted_index[word] = {}
@@ -61,25 +94,17 @@ def create_inverted_index(words, docID, tag):
 			inverted_index[word][docID][tag] += 1
 
 
-def clean_content(text):
-	text = text.lower()
-
-	reg = re.compile(r'[^\x00-\x7F]+', re.DOTALL)
-	text = reg.sub(' ', text)
-
-	reg = re.compile(r'\[\[file:(.*?)\]\]', re.DOTALL)
-	text = reg.sub('', text)
-	
-	reg = re.compile(r'{{v?cite(.*?)}}', re.DOTALL)
-	text = reg.sub('', text)
-	
-	reg = re.compile(r'<(.*?)>', re.DOTALL)
-	text = reg.sub('', text)
-
-	reg = re.compile(r'[.,;_()"/\']', re.DOTALL)
-	text = reg.sub(' ', text)
-
-	return text
+def clean_content(content):
+	content = content.lower()
+	content = re.sub(r'<(.*?)>', '', content)
+	content = re.sub(r'[^\x00-\x7F]+','', content)
+	content = re.sub(r'[.,;_()/\"\'\=]', '', content)
+	content = re.sub(r'<(.*?)>', '', content)
+	content = re.sub(r'[^\x00-\x7F]+', '', content)
+	#content = re.sub(r'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+', '', content)
+	# regex sub
+	# print ("conetnt \n\n\n\n\n")
+	return content
 
 
 def write_inverted_index_to_file(path_to_inverted_index_file):
@@ -157,7 +182,7 @@ def add_external_links_index(content, docID):
 	
 	#sys.exit(1)
 	if len(text) <= 1:
-		return
+		return ext_links_tokens	
 
 	lines = text[1].split("\n")
 	for line in lines:
@@ -192,11 +217,11 @@ def processContent(content, docID):
 	# body
 	add_body_index(cleanContent, docID)
 
-	if(docID%10000==0):
+	if(docID%1000==0):
 		print(docID, " pages read\n")
 
 	if(docID%max_page_limit==0):
-		print ("limtt erached \n")
+		print ("limtt erached \n\n\n")
 		filepath = getFilename(path_to_inverted_index_dir, curr_file_num)
 		curr_file_num += 1
 		write_inverted_index_to_file(filepath)
@@ -242,7 +267,7 @@ if __name__ == "__main__":
 
 	path_to_inverted_index_file = path_to_inverted_index_dir + "/inverted_index2.txt"
 
-	max_page_limit = 20000
+	max_page_limit = 10000
 	inverted_index = {}
 	num_tokens = 0
 	num_inverted_index_tokens = 0
@@ -250,36 +275,10 @@ if __name__ == "__main__":
 
 	documentTitleMapping = open("docToTitle.txt", "w")
 
-	context = et.iterparse(path_to_wiki_dump, events=("start", "end"))
-	context = iter(context)
-	page_count = 0
-	title = ""
-
-	for event, elem in context :
-	
-		tag =  re.sub(r"{.*}", "", elem.tag)
-
-		if event == "start" :
-			if tag == "page" :
-				page_count += 1
-           
-		if event == "end" :
-        
-			if tag == "text" :
-				text = str(elem.text)
-				processTags(page_count, text, False)
-                
-			if tag == "title" :
-				title = elem.text
-				processTags(page_count, title, True)
-
-			if tag == "page" :
-				try :
-					documentTitleMapping.write(str(page_count)+"#"+title.strip() + "\n")
-				except:
-					documentTitleMapping.write(str(page_count)+"#"+ str(title.strip().encode('utf-8'))+"\n")
-			
-			elem.clear()
+	wikiSearchEngine = WikiSearchEngine()
+	parser = xml.sax.make_parser()
+	parser.setContentHandler(wikiSearchEngine)
+	parser.parse(path_to_wiki_dump)
 
 	if (len(inverted_index)!=0):
 		print ("abhi bacha hai\n")
@@ -295,10 +294,8 @@ if __name__ == "__main__":
 	# write_inverted_index_to_file(path_to_inverted_index_file)
 	# write_stat_file(path_to_inverted_index_stat)
 
-# python indexerEtree.py  enwiki-latest-pages-articles17.xml-p23570393p23716197 tempIndexedFiles stats2.txt
+# python indexer.py wiki-dump-1-test.xml tempIndexedFiles stats2.txt
 	documentTitleMapping.close()
-	end = timeit.default_timer()
-	print('\nTook', end - startTime, 'sec\n')
 
 # trial1 : 25521434
 # 378599
